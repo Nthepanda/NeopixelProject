@@ -38,20 +38,22 @@ uint16_t COLORS[6] = {
 };
 
 // TYPE data key: {interfere with player physics}
-int TYPES[2][1] = {
+# define END_OF_LEVEL_BLOCK 2
+int TYPES[3][1] = {
    {1},   //Terrain  
-   {1}    //Enemy
+   {1},   //Enemy
+   {-1}    //End of level
 };
 
 #define ENV_LENGTH 6
 // Object data key: {color, x, y, width, height, typex}
 int env[ENV_LENGTH][6] = {
-{5, 31, 8, 1, 8, 1},
 {1, 0, 14, 16, 2, 1},
 {2, 3, 11, 5, 1, 1},
 {2, 7, 10, 5, 1, 1},
 {2, 11, 9, 5, 1, 1},
 {2, 19, 14, 16, 2, 1},
+{5, 31, 8, 1, 8, 2},
 };
 
 //Player variables
@@ -64,12 +66,16 @@ int enemies[1][4] = {
   {0, 5, 14, 1}
 };
 
-#define MAX_PROJ_ALLOWED 4
+#define MAX_PROJ_ALLOWED 8
 #define PROJ_FIRE_DELAY 500
 long lastProjFireTime = 0;
 int visibleProjCount = 0;
 //{active, color, x, y, type, speed}
 int proj[MAX_PROJ_ALLOWED][6] = {
+  {0, 4, 0, 0, 0, 1},
+  {0, 4, 0, 0, 0, 1},
+  {0, 4, 0, 0, 0, 1},
+  {0, 4, 0, 0, 0, 1},
   {0, 4, 0, 0, 0, 1},
   {0, 4, 0, 0, 0, 1},
   {0, 4, 0, 0, 0, 1},
@@ -166,7 +172,54 @@ void checkNESController() {
   digitalWrite(nesClock, LOW);
 }
 
+void addProj(int direction) {
+
+  //Serial.println(visibleProjCount);
+  lastProjFireTime = millis();
+  
+  if (checkPixelType(player[1] + 1,player[2]) == -1 && visibleProjCount < MAX_PROJ_ALLOWED) {
+
+    //Loop over the proj array to find a proj that is inactive proj[x][0] = 0
+    for (int i = 0; i < MAX_PROJ_ALLOWED; i++) {
+      
+      if (proj[i][0] == 0) {
+        //fire Projectile
+        proj[i][0] = 1;
+        proj[i][1] = 4;
+        proj[i][2] = player[1]+direction;
+        proj[i][3] = player[2];
+        proj[i][4] = 0;
+        proj[i][5] = direction;
+        //proj[visibleProjCount] = {1, 4, player[1]+1, player[2], 0, 1};
+        visibleProjCount++;
+
+        return;
+      }
+    }
+    
+  }
+
+}
+
+#define INTRO 1
+
+int game_state = 0;
+
 void loop() {
+
+  switch(game_state) {
+    case INTRO:
+      break;
+    case PLAYING:
+      break;
+    case PAUSED:
+      break;
+    case END_LEVEL:
+      break;
+    default:
+      break;
+  
+  }
 
   checkNESController();
   
@@ -179,7 +232,7 @@ void loop() {
 
         //Check to see if the next block to the left or right (depending on direction) is -1, true move, false set the proj to inactive
         if (checkPixelType(proj[i][2] + proj[i][5], proj[i][3]) == -1 && proj[i][2] >= 0 && proj[i][2] < levelWd) {
-          Serial.println(String("Proj can move") + String(i));
+          //Serial.println(String("Proj can move") + String(i));
           proj[i][2]+=proj[i][5];
         } else {
           proj[i][0] = 0;
@@ -193,36 +246,11 @@ void loop() {
 
 
     if (tempData[6] == 1 && millis() >= lastProjFireTime + PROJ_FIRE_DELAY) {
-      //Serial.println(visibleProjCount);
-      lastProjFireTime = millis();
-      if (player[4] == 1) { //Moving right
-        
-        if (checkPixelType(player[1] + 1,player[2]) == -1 && visibleProjCount < MAX_PROJ_ALLOWED) {
+      
+      
+      addProj(player[4]);
 
-          //fire Projectile
-          proj[visibleProjCount][0] = 1;
-          proj[visibleProjCount][1] = 4;
-          proj[visibleProjCount][2] = player[1]+1;
-          proj[visibleProjCount][3] = player[2];
-          proj[visibleProjCount][4] = 0;
-          proj[visibleProjCount][5] = 1;
-          //proj[visibleProjCount] = {1, 4, player[1]+1, player[2], 0, 1};
-          visibleProjCount++;
-        }
-      }
-      if (player[4] == 0) { //Moving left
-        if (checkPixelType(player[1] - 1,player[2]) == -1 && visibleProjCount < MAX_PROJ_ALLOWED) {
-          //fire Projectile
-          proj[visibleProjCount][0] = 1;
-          proj[visibleProjCount][1] = 4;
-          proj[visibleProjCount][2] = player[1]-1;
-          proj[visibleProjCount][3] = player[2];
-          proj[visibleProjCount][4] = 0;
-          proj[visibleProjCount][5] = -1;
-          //proj[visibleProjCount] = {1, 4, player[1]+1, player[2], 0, 1};
-          visibleProjCount++;
-        }
-      }
+      
   
     }
     
@@ -249,6 +277,8 @@ void loop() {
     if(walkticks > 1) {
       walkticks = 0;
 
+
+      //Player movement
       if (tempData[0] == 1) { //Right
         player[4] = 1;
         if (player[1] < levelWd - 1 && checkPixelType(player[1]+1,player[2]) == -1) {
@@ -260,7 +290,7 @@ void loop() {
         }
       }
       if (tempData[1] == 1) { //Left
-        player[4] = 0;
+        player[4] = -1;
         if (player[1] > 0 && checkPixelType(player[1]-1,player[2]) == -1) {
             player[1] = player[1] -= 1;
            
